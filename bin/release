@@ -27,6 +27,11 @@ fi
 
 echo "Built: $DMG_FILE"
 
+# Commit version change
+git add config/nativephp.php
+git commit -m "Bump version to v$VERSION" || echo "No changes to commit"
+git push origin main
+
 # Create and push git tag
 git tag -a "v$VERSION" -m "Release v$VERSION"
 git push origin "v$VERSION"
