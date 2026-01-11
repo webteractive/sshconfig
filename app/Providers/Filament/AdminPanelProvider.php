@@ -27,10 +27,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('')
             ->navigation(false)
-            ->brandName('SSH Config')
-            ->brandLogo(asset('images/logo-light.svg'))
-            ->darkModeBrandLogo(asset('images/logo-dark.svg'))
-            ->brandLogoHeight('2rem')
+            ->brandLogo(fn () => view('components.brand-logo'))
             ->favicon(asset('images/favicon.svg'))
             ->darkMode(true)
             ->renderHook(
