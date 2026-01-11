@@ -1,59 +1,158 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SSH Config Manager
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A modern desktop application built with Laravel and Filament for managing SSH configuration files. Easily create, edit, duplicate, and sync SSH configurations with a beautiful, intuitive interface.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Visual SSH Config Management**: Create, edit, and delete SSH configurations through an elegant interface
+- **Bidirectional Sync**: Sync configurations between your SSH config file and the database
+- **Conflict Detection**: Automatically detect and resolve conflicts when syncing
+- **Quick Copy**: Copy SSH commands directly from the interface with one click
+- **Duplicate Configurations**: Quickly duplicate existing SSH configs with unique hostnames
+- **Automatic Backups**: Creates backups before syncing to protect your existing configurations
+- **Desktop Application**: Available as a native macOS desktop app built with NativePHP
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.2 or higher
+- Composer
+- Node.js and npm
+- SQLite (default) or MySQL/PostgreSQL
 
-## Learning Laravel
+## Installation
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd sshconfig
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+2. Install PHP dependencies:
+```bash
+composer install
+```
 
-## Laravel Sponsors
+3. Install Node.js dependencies:
+```bash
+npm install
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+4. Set up environment:
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-### Premium Partners
+5. Run migrations:
+```bash
+php artisan migrate
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+6. Build frontend assets:
+```bash
+npm run build
+```
 
-## Contributing
+## Usage
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Web Application
 
-## Code of Conduct
+Start the development server:
+```bash
+php artisan serve
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Visit the application in your browser and set your SSH config path when prompted.
 
-## Security Vulnerabilities
+### Desktop Application (macOS)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Build the desktop application:
+```bash
+php artisan native:build mac
+```
+
+The `.dmg` file will be created in the `dist/` directory.
+
+For development:
+```bash
+composer run native:dev
+```
+
+## Key Features Explained
+
+### Setting SSH Config Path
+
+On first launch, you'll be prompted to set the path to your SSH config file (typically `~/.ssh/config`). This path is stored and used for all sync operations.
+
+### Syncing Configurations
+
+- **Sync From File**: Reads your SSH config file and updates the database
+- **Sync To File**: Writes all database configurations to your SSH config file
+- **Sync Both**: Bidirectionally syncs, detecting and reporting conflicts
+
+### Managing Configurations
+
+- **Create**: Add new SSH configurations with host, hostname, user, port, and identity file
+- **Edit**: Update existing configurations
+- **Duplicate**: Create copies of configurations with unique hostnames
+- **Delete**: Remove configurations (with automatic sync to file)
+
+### SSH Command
+
+Each configuration displays a copyable SSH command (e.g., `ssh hostname`) that you can quickly copy and paste into your terminal.
+
+## Development
+
+### Running Tests
+
+```bash
+php artisan test
+```
+
+### Code Style
+
+This project uses Laravel Pint for code formatting:
+
+```bash
+vendor/bin/pint
+```
+
+### Project Structure
+
+- `app/Actions/` - Business logic actions for SSH config operations
+- `app/Filament/Actions/` - Filament UI actions
+- `app/Filament/Resources/` - Filament resources and pages
+- `app/Models/` - Eloquent models
+- `tests/` - Pest test suite
+
+## Tech Stack
+
+- **Laravel 12** - PHP framework
+- **Filament 4** - Admin panel framework
+- **Livewire 3** - Dynamic UI components
+- **NativePHP** - Desktop application framework
+- **Pest** - Testing framework
+- **SQLite** - Database (default)
+
+## Building Releases
+
+To create a release:
+
+```bash
+./bin/release <version>
+```
+
+Example:
+```bash
+./bin/release 1.0.0
+```
+
+This will:
+1. Update the version in `config/nativephp.php`
+2. Build the macOS `.dmg` file
+3. Create a Git tag
+4. Create a GitHub release with the `.dmg` attached
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The SSH Config Manager is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
