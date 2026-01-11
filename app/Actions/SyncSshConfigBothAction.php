@@ -60,6 +60,9 @@ class SyncSshConfigBothAction
             }
         }
 
+        // Reload DB configs after syncing from file to get fresh data
+        $dbConfigs = SshConfig::all()->keyBy('host');
+
         // Add DB-only configs to file
         foreach ($dbConfigs as $host => $dbConfig) {
             $existsInFile = false;

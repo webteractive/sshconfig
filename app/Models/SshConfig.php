@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SshConfig extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'host',
         'properties',
@@ -64,5 +67,13 @@ class SshConfig extends Model
     public function getSshCommand(): string
     {
         return "ssh {$this->host}";
+    }
+
+    /**
+     * Get the port value or default to 22.
+     */
+    public function getPortAttribute(): ?string
+    {
+        return $this->properties['Port'] ?? '22';
     }
 }

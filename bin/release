@@ -1,0 +1,43 @@
+#!/bin/bash
+# bin/release - Automated release script
+
+set -e
+
+# Get version from argument or prompt
+VERSION=${1:-}
+if [ -z "$VERSION" ]; then
+    read -p "Enter version (e.g., 1.0.0): " VERSION
+fi
+
+echo "Building SSH Config Manager v$VERSION..."
+
+# Update version in config file
+sed -i '' "s/'version' => env('NATIVEPHP_APP_VERSION', '.*'),/'version' => env('NATIVEPHP_APP_VERSION', '$VERSION'),/" config/nativephp.php
+
+# Build macOS app
+php artisan native:build mac
+
+# Find the built dmg
+DMG_FILE=$(find dist -name "*.dmg" | head -1)
+
+if [ -z "$DMG_FILE" ]; then
+    echo "Error: No .dmg file found in dist/"
+    exit 1
+fi
+
+echo "Built: $DMG_FILE"
+
+# Create and push git tag
+git tag -a "v$VERSION" -m "Release v$VERSION"
+git push origin "v$VERSION"
+
+# Create GitHub release with the dmg attached
+gh release create "v$VERSION" \
+    --title "SSH Config Manager v$VERSION" \
+    --notes "## Downloads
+
+- **macOS**: Download the .dmg file below and drag to Applications" \
+    "$DMG_FILE"
+
+echo "Released v$VERSION to GitHub!"
+echo "View at: $(gh repo view --json url -q .url)/releases/tag/v$VERSION"
