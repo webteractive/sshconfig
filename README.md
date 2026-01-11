@@ -6,10 +6,33 @@ A modern desktop application built with Laravel and Filament for managing SSH co
 
 Download the latest macOS installer from the [Releases](https://github.com/webteractive/sshconfig/releases) page.
 
-1. Download the `.dmg` file from the latest release
-2. Open the downloaded `.dmg` file
-3. Drag the SSH Config Manager app to your Applications folder
-4. Launch the app from Applications
+### Which file should I download?
+
+- **macOS Apple Silicon (M1/M2/M3)**: Download `SSHConfig-x.x.x-arm64.dmg`
+- **macOS Intel**: Download `SSHConfig-x.x.x-x64.dmg`
+
+**Not sure which one?** Check your Mac's processor:
+- Apple menu → About This Mac → Chip: If it says "Apple" or "M1/M2/M3", download the **arm64** version
+- If it says "Intel", download the **x64** version
+
+### Installation Instructions
+
+1. **Download** the appropriate .dmg file for your Mac architecture
+2. **Open** the downloaded .dmg file (double-click it)
+3. **Drag** SSH Config Manager to your Applications folder
+4. **Launch** the app from Applications
+5. **Set SSH Config Path** when prompted (typically `~/.ssh/config`)
+
+### First Launch
+
+On first launch, you'll be prompted to set the path to your SSH config file. This is required for the application to sync configurations.
+
+**Default path**: `~/.ssh/config`
+
+### System Requirements
+
+- macOS 10.12 or later
+- SSH config file access
 
 ## Features
 
@@ -66,15 +89,7 @@ npm run build
 
 ### Desktop Application (macOS)
 
-**Download and Install:**
-1. Download the latest `.dmg` installer from the [Releases](https://github.com/webteractive/sshconfig/releases) page
-2. Open the downloaded `.dmg` file
-3. Drag SSH Config Manager to your Applications folder
-4. Launch the app from Applications
-5. Set your SSH config path when prompted (typically `~/.ssh/config`)
-
-**First Launch:**
-On first launch, you'll be prompted to set the path to your SSH config file. This is required for the application to sync configurations.
+See the [Download](#download) section above for detailed installation instructions.
 
 ### Web Application (Development)
 
@@ -92,7 +107,7 @@ To build the desktop application yourself:
 php artisan native:build mac
 ```
 
-The `.dmg` file will be created in the `dist/` directory.
+The `.dmg` files will be created in the `nativephp/electron/dist/` directory (both arm64 and x64 versions).
 
 For development:
 ```bash

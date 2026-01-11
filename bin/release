@@ -43,13 +43,42 @@ gh release create "v$VERSION" \
     --title "SSH Config Manager v$VERSION" \
     --notes "## Downloads
 
+### Which file should I download?
+
 - **macOS Apple Silicon (M1/M2/M3)**: Download \`SSHConfig-$VERSION-arm64.dmg\`
 - **macOS Intel**: Download \`SSHConfig-$VERSION-x64.dmg\`
 
-### Installation
-1. Download the appropriate .dmg file for your Mac
-2. Open the downloaded file
-3. Drag SSH Config Manager to your Applications folder" \
+**Not sure which one?** Check your Mac's processor:
+- Apple menu → About This Mac → Chip: If it says \"Apple\" or \"M1/M2/M3\", download the **arm64** version
+- If it says \"Intel\", download the **x64** version
+
+### Installation Instructions
+
+1. **Download** the appropriate .dmg file for your Mac architecture
+2. **Open** the downloaded .dmg file (double-click it)
+3. **Drag** SSH Config Manager to your Applications folder
+4. **Launch** the app from Applications
+5. **Set SSH Config Path** when prompted (typically \`~/.ssh/config\`)
+
+### First Launch
+
+On first launch, you'll be prompted to set the path to your SSH config file. This is required for the application to sync configurations.
+
+**Default path**: \`~/.ssh/config\`
+
+### System Requirements
+
+- macOS 10.12 or later
+- SSH config file access
+
+### Features
+
+- Visual SSH Config Management
+- Bidirectional Sync
+- Conflict Detection
+- Quick Copy SSH Commands
+- Duplicate Configurations
+- Automatic Backups" \
     $DMG_DIR/*.dmg
 
 echo "Released v$VERSION to GitHub!"
