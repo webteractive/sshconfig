@@ -60,6 +60,30 @@ gh release create "v$VERSION" \
 4. **Launch** the app from Applications
 5. **Set SSH Config Path** when prompted (typically \`~/.ssh/config\`)
 
+### macOS Gatekeeper Security
+
+Since this app is not code-signed with an Apple Developer certificate, macOS Gatekeeper may prevent it from opening. If you see a message saying the app \"cannot be opened because it is from an unidentified developer,\" here are the solutions:
+
+**Solution 1: Right-Click and Open (Recommended)**
+1. Right-click (or Control-click) on SSH Config Manager in Applications
+2. Select **Open** from the context menu
+3. Click **Open** in the security dialog
+4. The app will now launch and be added to your security exceptions
+
+**Solution 2: System Settings**
+1. Go to **System Settings** → **Privacy & Security**
+2. Scroll down to find the message about SSH Config Manager being blocked
+3. Click **Open Anyway**
+4. Confirm by clicking **Open** in the dialog
+
+**Solution 3: Remove Quarantine Attribute (Advanced)**
+If the above methods don't work, you can remove the quarantine attribute via Terminal:
+\`\`\`bash
+xattr -d com.apple.quarantine /Applications/SSH\\ Config\\ Manager.app
+\`\`\`
+
+**Note**: This app is open-source and safe to use. The security warning appears because it's not signed with an Apple Developer certificate (which requires a paid Apple Developer account). You can review the source code on GitHub to verify its safety.
+
 ### First Launch
 
 On first launch, you'll be prompted to set the path to your SSH config file. This is required for the application to sync configurations.
