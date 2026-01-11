@@ -34,7 +34,7 @@ return [
     /**
      * The copyright notice for your application.
      */
-    'copyright' => env('NATIVEPHP_APP_COPYRIGHT', 'Copyright © ' . date('Y') . ' Glen Bangkila'),
+    'copyright' => env('NATIVEPHP_APP_COPYRIGHT', 'Copyright © '.date('Y').' Glen Bangkila'),
 
     /**
      * The description of your application.

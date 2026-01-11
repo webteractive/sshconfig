@@ -17,15 +17,17 @@ sed -i '' "s/'version' => env('NATIVEPHP_APP_VERSION', '.*'),/'version' => env('
 # Build macOS app
 php artisan native:build mac
 
-# Find the built dmg
-DMG_FILE=$(find dist -name "*.dmg" | head -1)
+# Find the built dmg files in the correct directory
+DMG_DIR="nativephp/electron/dist"
+DMG_FILES=$(find "$DMG_DIR" -name "*.dmg" 2>/dev/null)
 
-if [ -z "$DMG_FILE" ]; then
-    echo "Error: No .dmg file found in dist/"
+if [ -z "$DMG_FILES" ]; then
+    echo "Error: No .dmg files found in $DMG_DIR/"
     exit 1
 fi
 
-echo "Built: $DMG_FILE"
+echo "Built DMG files:"
+echo "$DMG_FILES"
 
 # Commit version change
 git add config/nativephp.php
@@ -36,13 +38,19 @@ git push origin main
 git tag -a "v$VERSION" -m "Release v$VERSION"
 git push origin "v$VERSION"
 
-# Create GitHub release with the dmg attached
+# Create GitHub release with all dmg files attached
 gh release create "v$VERSION" \
     --title "SSH Config Manager v$VERSION" \
     --notes "## Downloads
 
-- **macOS**: Download the .dmg file below and drag to Applications" \
-    "$DMG_FILE"
+- **macOS Apple Silicon (M1/M2/M3)**: Download \`Laravel-$VERSION-arm64.dmg\`
+- **macOS Intel**: Download \`Laravel-$VERSION-x64.dmg\`
+
+### Installation
+1. Download the appropriate .dmg file for your Mac
+2. Open the downloaded file
+3. Drag SSH Config Manager to your Applications folder" \
+    $DMG_DIR/*.dmg
 
 echo "Released v$VERSION to GitHub!"
 echo "View at: $(gh repo view --json url -q .url)/releases/tag/v$VERSION"
