@@ -43,8 +43,8 @@ gh release create "v$VERSION" \
     --title "SSH Config Manager v$VERSION" \
     --notes "## Downloads
 
-- **macOS Apple Silicon (M1/M2/M3)**: Download \`Laravel-$VERSION-arm64.dmg\`
-- **macOS Intel**: Download \`Laravel-$VERSION-x64.dmg\`
+- **macOS Apple Silicon (M1/M2/M3)**: Download \`SSHConfig-$VERSION-arm64.dmg\`
+- **macOS Intel**: Download \`SSHConfig-$VERSION-x64.dmg\`
 
 ### Installation
 1. Download the appropriate .dmg file for your Mac
