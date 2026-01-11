@@ -2,6 +2,15 @@
 
 A modern desktop application built with Laravel and Filament for managing SSH configuration files. Easily create, edit, duplicate, and sync SSH configurations with a beautiful, intuitive interface.
 
+## Download
+
+Download the latest macOS installer from the [Releases](https://github.com/webteractive/sshconfig/releases) page.
+
+1. Download the `.dmg` file from the latest release
+2. Open the downloaded `.dmg` file
+3. Drag the SSH Config Manager app to your Applications folder
+4. Launch the app from Applications
+
 ## Features
 
 - **Visual SSH Config Management**: Create, edit, and delete SSH configurations through an elegant interface
@@ -23,7 +32,7 @@ A modern desktop application built with Laravel and Filament for managing SSH co
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/webteractive/sshconfig.git
 cd sshconfig
 ```
 
@@ -55,7 +64,19 @@ npm run build
 
 ## Usage
 
-### Web Application
+### Desktop Application (macOS)
+
+**Download and Install:**
+1. Download the latest `.dmg` installer from the [Releases](https://github.com/webteractive/sshconfig/releases) page
+2. Open the downloaded `.dmg` file
+3. Drag SSH Config Manager to your Applications folder
+4. Launch the app from Applications
+5. Set your SSH config path when prompted (typically `~/.ssh/config`)
+
+**First Launch:**
+On first launch, you'll be prompted to set the path to your SSH config file. This is required for the application to sync configurations.
+
+### Web Application (Development)
 
 Start the development server:
 ```bash
@@ -64,9 +85,9 @@ php artisan serve
 
 Visit the application in your browser and set your SSH config path when prompted.
 
-### Desktop Application (macOS)
+### Building from Source
 
-Build the desktop application:
+To build the desktop application yourself:
 ```bash
 php artisan native:build mac
 ```
