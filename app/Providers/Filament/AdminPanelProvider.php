@@ -5,7 +5,9 @@ namespace App\Providers\Filament;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\FilamentInfoWidget;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -25,7 +27,16 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('')
             ->navigation(false)
-            ->topbar(false)
+            ->brandName('SSH Config')
+            ->brandLogo(asset('images/logo-light.svg'))
+            ->darkModeBrandLogo(asset('images/logo-dark.svg'))
+            ->brandLogoHeight('2rem')
+            ->favicon(asset('images/favicon.svg'))
+            ->darkMode(true)
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                fn () => Blade::render('<x-filament-panels::theme-switcher />'),
+            )
             ->colors([
                 'primary' => Color::Sky,
             ])

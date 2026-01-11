@@ -29,22 +29,22 @@ return [
     /**
      * The author of your application.
      */
-    'author' => env('NATIVEPHP_APP_AUTHOR'),
+    'author' => env('NATIVEPHP_APP_AUTHOR', 'Glen Bangkila'),
 
     /**
      * The copyright notice for your application.
      */
-    'copyright' => env('NATIVEPHP_APP_COPYRIGHT'),
+    'copyright' => env('NATIVEPHP_APP_COPYRIGHT', 'Copyright © ' . date('Y') . ' Glen Bangkila'),
 
     /**
      * The description of your application.
      */
-    'description' => env('NATIVEPHP_APP_DESCRIPTION', 'SSH Config Manager - Manage your SSH configuration files'),
+    'description' => env('NATIVEPHP_APP_DESCRIPTION', 'A simple and elegant SSH config file manager'),
 
     /**
      * The Website of your application.
      */
-    'website' => env('NATIVEPHP_APP_WEBSITE', 'https://nativephp.com'),
+    'website' => env('NATIVEPHP_APP_WEBSITE', 'https://github.com/webteractive/sshconfig'),
 
     /**
      * The default service provider for your application. This provider
