@@ -1,0 +1,25 @@
+{
+    "main": "bin/sshconfig",
+    "output": "builds/sshconfig.phar",
+    "directories": [
+        "app",
+        "bootstrap",
+        "config",
+        "database/factories",
+        "database/migrations",
+        "database/seeders",
+        "public",
+        "resources",
+        "routes",
+        "vendor"
+    ],
+    "files": [
+        "artisan",
+        ".env.example",
+        "composer.json"
+    ],
+    "check-requirements": false,
+    "dump-autoload": false,
+    "exclude-composer-files": false,
+    "compression": "GZ"
+}

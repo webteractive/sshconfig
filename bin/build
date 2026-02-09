@@ -1,0 +1,126 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_DIR"
+
+echo "==> Building SSHConfig standalone binary"
+echo ""
+
+# ---------------------------------------------------------------------------
+# Step 1: Build frontend assets
+# ---------------------------------------------------------------------------
+echo "==> Step 1/6: Building frontend assets..."
+npm ci --silent
+npm run build
+
+# ---------------------------------------------------------------------------
+# Step 2: Install production PHP dependencies only
+# ---------------------------------------------------------------------------
+echo ""
+echo "==> Step 2/6: Installing production dependencies..."
+composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --quiet
+
+# ---------------------------------------------------------------------------
+# Step 3: Publish vendor assets (Filament, Laravel)
+# ---------------------------------------------------------------------------
+echo ""
+echo "==> Step 3/6: Publishing vendor assets..."
+php artisan filament:assets --no-interaction 2>/dev/null || true
+php artisan vendor:publish --tag=laravel-assets --force --no-interaction 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Step 4: Clear bootstrap cache and prepare build tools
+# ---------------------------------------------------------------------------
+echo ""
+echo "==> Step 4/6: Preparing build..."
+rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+rm -f bootstrap/cache/config.php bootstrap/cache/routes-v7.php
+mkdir -p builds
+
+if [ ! -f builds/box.phar ]; then
+    echo "    Downloading box.phar..."
+    curl -LSs https://github.com/box-project/box/releases/latest/download/box.phar -o builds/box.phar
+fi
+
+# ---------------------------------------------------------------------------
+# Step 5: Build PHAR archive
+# ---------------------------------------------------------------------------
+echo ""
+echo "==> Step 5/6: Creating PHAR archive..."
+php builds/box.phar compile
+
+# ---------------------------------------------------------------------------
+# Step 6: Build native binaries
+# PHPacker's micro.sfx binaries are concatenated with the PHAR to create
+# standalone executables. On macOS, ad-hoc code signing is applied.
+# ---------------------------------------------------------------------------
+echo ""
+echo "==> Step 6/6: Building native binaries..."
+
+# Restore dev dependencies to access phpacker's downloaded PHP binaries
+composer install --no-interaction --no-scripts --quiet 2>/dev/null
+
+# Download PHP binaries if not already present
+php -d memory_limit=512M vendor/bin/phpacker build --src=./builds/sshconfig.phar --php=8.4 all 2>/dev/null || true
+
+PHPACKER_BIN_DIR="$HOME/.phpacker/binaries/default"
+PHAR_PATH="builds/sshconfig.phar"
+
+build_binary() {
+    local platform=$1
+    local arch=$2
+    local output_dir="builds/${platform}-${arch}"
+    local output_name="sshconfig"
+    local sfx_path="${PHPACKER_BIN_DIR}/${platform}/${arch}/8.4/micro.sfx"
+
+    if [ "$platform" = "win" ]; then
+        output_name="sshconfig.exe"
+        # PHPacker uses "win" but stores as "win"
+        sfx_path="${PHPACKER_BIN_DIR}/win/${arch}/8.4/micro.sfx"
+    fi
+
+    # Map platform names for phpacker directory structure
+    if [ "$platform" = "macos" ]; then
+        sfx_path="${PHPACKER_BIN_DIR}/mac/${arch}/8.4/micro.sfx"
+    fi
+
+    if [ ! -f "$sfx_path" ]; then
+        echo "    Skipping ${platform}-${arch}: micro.sfx not found"
+        return
+    fi
+
+    mkdir -p "$output_dir"
+    cat "$sfx_path" "$PHAR_PATH" > "${output_dir}/${output_name}"
+    chmod +x "${output_dir}/${output_name}"
+
+    # Code-sign on macOS binaries (required for Apple Silicon)
+    if [ "$platform" = "macos" ]; then
+        codesign -f -s - "${output_dir}/${output_name}" 2>/dev/null || true
+    fi
+
+    echo "    ✓ ${output_dir}/${output_name}"
+}
+
+# Build for all platforms
+build_binary "macos" "arm64"
+build_binary "macos" "x64"
+build_binary "linux" "arm64"
+build_binary "linux" "x64"
+build_binary "win" "x64"
+
+# Restore dev dependencies
+echo ""
+echo "==> Restoring dev dependencies..."
+composer install --no-interaction --quiet
+
+echo ""
+echo "==> Build complete!"
+echo ""
+echo "Binaries:"
+find builds -name "sshconfig*" -not -name "*.phar" -type f | sort | while read -r f; do
+    size=$(du -h "$f" | cut -f1 | xargs)
+    echo "  $f ($size)"
+done

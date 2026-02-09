@@ -1,0 +1,6 @@
+{
+    "src": "./builds/sshconfig.phar",
+    "dest": "./builds",
+    "ini": "./phpacker.ini",
+    "php": "8.4"
+}

@@ -1,0 +1,509 @@
+#!/usr/bin/env php
+<?php
+
+define('SSHCONFIG_VERSION', '1.0.0');
+define('SSHCONFIG_DEFAULT_PORT', 8377);
+
+// ---------------------------------------------------------------------------
+// Determine application home directory (platform-specific)
+// ---------------------------------------------------------------------------
+
+$appHome = match (PHP_OS_FAMILY) {
+    'Darwin' => getenv('HOME') . '/.sshconfig',
+    'Windows' => getenv('LOCALAPPDATA') . DIRECTORY_SEPARATOR . 'sshconfig',
+    default => getenv('HOME') . '/.sshconfig',
+};
+
+// ---------------------------------------------------------------------------
+// Determine if running from PHAR or directly (dev mode)
+// ---------------------------------------------------------------------------
+
+$pharPath = Phar::running(false);
+$isFromPhar = ! empty($pharPath);
+$isMicroSfx = $isFromPhar && empty(PHP_BINARY);
+
+if ($isFromPhar) {
+    $appDir = $appHome . DIRECTORY_SEPARATOR . 'app';
+    extractIfNeeded($pharPath, $appHome, $appDir);
+} else {
+    // Dev mode: use the project directory directly
+    $appDir = dirname(__DIR__);
+}
+
+// ---------------------------------------------------------------------------
+// Ensure storage directories exist
+// ---------------------------------------------------------------------------
+
+$storageDirs = [
+    $appDir . '/storage/app/private',
+    $appDir . '/storage/app/public',
+    $appDir . '/storage/framework/cache/data',
+    $appDir . '/storage/framework/sessions',
+    $appDir . '/storage/framework/testing',
+    $appDir . '/storage/framework/views',
+    $appDir . '/storage/logs',
+    $appDir . '/bootstrap/cache',
+];
+
+foreach ($storageDirs as $dir) {
+    if (! is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ensure .env exists (only for PHAR mode)
+// ---------------------------------------------------------------------------
+
+if ($isFromPhar) {
+    ensureEnv($appDir);
+}
+
+// ---------------------------------------------------------------------------
+// Ensure database file exists
+// ---------------------------------------------------------------------------
+
+$dbDir = $appDir . '/database';
+
+if (! is_dir($dbDir)) {
+    mkdir($dbDir, 0755, true);
+}
+
+$dbPath = $dbDir . '/database.sqlite';
+
+if (! file_exists($dbPath)) {
+    touch($dbPath);
+}
+
+// ---------------------------------------------------------------------------
+// Resolve the PHP binary to use for subprocesses
+// ---------------------------------------------------------------------------
+
+$php = resolvePhpBinary();
+
+// ---------------------------------------------------------------------------
+// Run migrations
+// ---------------------------------------------------------------------------
+
+output('Running migrations...');
+
+$cwd = getcwd();
+chdir($appDir);
+
+if (! empty($php)) {
+    // Standard mode: use PHP binary to run artisan
+    $artisan = $appDir . '/artisan';
+    $cmd = sprintf(
+        '%s %s migrate --force --no-interaction 2>&1',
+        escapeshellarg($php),
+        escapeshellarg($artisan)
+    );
+
+    exec($cmd, $migrationOutput, $migrationExitCode);
+
+    if ($migrationExitCode !== 0) {
+        output('Warning: Migration failed with output:');
+        output(implode("\n", $migrationOutput));
+    }
+} else {
+    // Micro.sfx mode: bootstrap Laravel in-process for migrations
+    runMigrationsInProcess($appDir);
+}
+
+chdir($cwd);
+
+// ---------------------------------------------------------------------------
+// Find an available port
+// ---------------------------------------------------------------------------
+
+$port = findAvailablePort(SSHCONFIG_DEFAULT_PORT);
+
+// ---------------------------------------------------------------------------
+// Update APP_URL in .env (PHAR mode only)
+// ---------------------------------------------------------------------------
+
+if ($isFromPhar) {
+    updateEnvValue($appDir . '/.env', 'APP_URL', "http://127.0.0.1:{$port}");
+}
+
+// ---------------------------------------------------------------------------
+// Start the server
+// ---------------------------------------------------------------------------
+
+$docRoot = $appDir . '/public';
+$url = "http://127.0.0.1:{$port}";
+
+output('');
+output("SSHConfig v" . SSHCONFIG_VERSION);
+output("Running at {$url}");
+output('Press Ctrl+C to stop.');
+output('');
+
+openBrowser($url);
+
+chdir($appDir);
+
+if (! empty($php)) {
+    // Standard mode: spawn php -S as a subprocess
+    $serverCmd = sprintf(
+        '%s -S 127.0.0.1:%d -t %s',
+        escapeshellarg($php),
+        $port,
+        escapeshellarg($docRoot)
+    );
+
+    passthru($serverCmd, $exitCode);
+    exit($exitCode);
+} else {
+    // Micro.sfx mode: run a basic socket server in-process
+    runBuiltInServer($appDir, $port);
+}
+
+// ===========================================================================
+// Functions
+// ===========================================================================
+
+function output(string $message): void
+{
+    echo $message . PHP_EOL;
+}
+
+function resolvePhpBinary(): string
+{
+    // 1. PHP_BINARY is set and valid (normal PHP execution)
+    if (! empty(PHP_BINARY) && is_executable(PHP_BINARY)) {
+        return PHP_BINARY;
+    }
+
+    // 2. Try to find php on the system PATH
+    $phpPath = trim(shell_exec(PHP_OS_FAMILY === 'Windows' ? 'where php 2>nul' : 'which php 2>/dev/null') ?? '');
+
+    if (! empty($phpPath) && is_executable($phpPath)) {
+        return $phpPath;
+    }
+
+    // 3. No PHP binary found (micro.sfx mode without system PHP)
+    return '';
+}
+
+function runMigrationsInProcess(string $appDir): void
+{
+    try {
+        // Bootstrap Laravel in-process
+        require_once $appDir . '/vendor/autoload.php';
+
+        $app = require_once $appDir . '/bootstrap/app.php';
+        $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+        $kernel->bootstrap();
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('migrate', [
+            '--force' => true,
+            '--no-interaction' => true,
+        ]);
+
+        if ($exitCode !== 0) {
+            output('Warning: Migration returned non-zero exit code: ' . $exitCode);
+        }
+    } catch (\Throwable $e) {
+        output('Warning: In-process migration failed: ' . $e->getMessage());
+    }
+}
+
+function runBuiltInServer(string $appDir, int $port): void
+{
+    // When no PHP binary is available, serve HTTP using a simple socket server
+    // that bootstraps Laravel for each request
+
+    $address = '127.0.0.1';
+    $socket = stream_socket_server("tcp://{$address}:{$port}", $errno, $errstr);
+
+    if (! $socket) {
+        output("Error: Could not start server: {$errstr} ({$errno})");
+        exit(1);
+    }
+
+    output("Socket server listening on {$address}:{$port}");
+
+    // Ensure Laravel is bootstrapped
+    $_ENV['APP_BASE_PATH'] = $appDir;
+    chdir($appDir);
+
+    while ($conn = @stream_socket_accept($socket, -1)) {
+        $request = '';
+        while ($line = fgets($conn)) {
+            $request .= $line;
+            if (trim($line) === '') {
+                break;
+            }
+        }
+
+        // Parse the request line
+        if (preg_match('/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+(\S+)\s+HTTP/', $request, $matches)) {
+            $method = $matches[1];
+            $uri = $matches[2];
+            $path = parse_url($uri, PHP_URL_PATH);
+
+            // Try to serve static files first
+            $staticFile = $appDir . '/public' . $path;
+            if ($path !== '/' && is_file($staticFile)) {
+                serveStaticFile($conn, $staticFile);
+            } else {
+                serveLaravelRequest($conn, $appDir, $method, $uri, $request);
+            }
+        }
+
+        fclose($conn);
+    }
+
+    fclose($socket);
+}
+
+function serveStaticFile($conn, string $filePath): void
+{
+    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+    $contentTypes = [
+        'html' => 'text/html',
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        'json' => 'application/json',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'ico' => 'image/x-icon',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf' => 'font/ttf',
+        'eot' => 'application/vnd.ms-fontobject',
+        'map' => 'application/json',
+    ];
+
+    $contentType = $contentTypes[$ext] ?? 'application/octet-stream';
+    $content = file_get_contents($filePath);
+    $length = strlen($content);
+
+    $response = "HTTP/1.1 200 OK\r\n";
+    $response .= "Content-Type: {$contentType}\r\n";
+    $response .= "Content-Length: {$length}\r\n";
+    $response .= "Connection: close\r\n";
+    $response .= "\r\n";
+    $response .= $content;
+
+    fwrite($conn, $response);
+}
+
+function serveLaravelRequest($conn, string $appDir, string $method, string $uri, string $rawRequest): void
+{
+    // For Laravel requests, we need to fork a new process or handle in-process
+    // Since we can't fork easily and in-process request handling with Laravel
+    // has complications (global state), return a redirect to use system PHP
+
+    $response = "HTTP/1.1 500 Internal Server Error\r\n";
+    $response .= "Content-Type: text/plain\r\n";
+    $response .= "Connection: close\r\n";
+    $response .= "\r\n";
+    $response .= "SSHConfig requires PHP to be installed on your system.\n";
+    $response .= "Install PHP via: brew install php (macOS) or apt install php (Linux)\n";
+
+    fwrite($conn, $response);
+}
+
+function extractIfNeeded(string $pharPath, string $appHome, string $appDir): void
+{
+    $versionFile = $appHome . DIRECTORY_SEPARATOR . '.version';
+
+    // Check if extraction is needed
+    if (is_dir($appDir) && file_exists($versionFile)) {
+        $installedVersion = trim(file_get_contents($versionFile));
+        if ($installedVersion === SSHCONFIG_VERSION) {
+            return; // Already up to date
+        }
+        output('Upgrading from ' . $installedVersion . ' to ' . SSHCONFIG_VERSION . '...');
+    } else {
+        output('Setting up SSHConfig for the first time...');
+    }
+
+    // Preserve database and .env across upgrades
+    $preserveDb = null;
+    $preserveEnv = null;
+    $dbPath = $appDir . '/database/database.sqlite';
+    $envPath = $appDir . '/.env';
+
+    if (file_exists($dbPath)) {
+        $preserveDb = file_get_contents($dbPath);
+    }
+    if (file_exists($envPath)) {
+        $preserveEnv = file_get_contents($envPath);
+    }
+
+    // Remove old app directory for clean extraction
+    if (is_dir($appDir)) {
+        removeDirectory($appDir);
+    }
+
+    // Create app home
+    if (! is_dir($appHome)) {
+        mkdir($appHome, 0755, true);
+    }
+
+    // Extract PHAR contents
+    output('Extracting application files...');
+    $phar = new Phar($pharPath);
+    $phar->extractTo($appDir, null, true);
+
+    // Restore preserved files
+    if ($preserveDb !== null) {
+        $dbDir = $appDir . '/database';
+        if (! is_dir($dbDir)) {
+            mkdir($dbDir, 0755, true);
+        }
+        file_put_contents($dbPath, $preserveDb);
+    }
+    if ($preserveEnv !== null) {
+        file_put_contents($envPath, $preserveEnv);
+    }
+
+    // Clear cached service providers (may reference dev-only packages)
+    $cacheFiles = [
+        $appDir . '/bootstrap/cache/packages.php',
+        $appDir . '/bootstrap/cache/services.php',
+        $appDir . '/bootstrap/cache/config.php',
+        $appDir . '/bootstrap/cache/routes-v7.php',
+    ];
+
+    foreach ($cacheFiles as $cacheFile) {
+        if (file_exists($cacheFile)) {
+            unlink($cacheFile);
+        }
+    }
+
+    // Write version file
+    file_put_contents($versionFile, SSHCONFIG_VERSION);
+
+    output('Extraction complete.');
+}
+
+function removeDirectory(string $dir): void
+{
+    if (! is_dir($dir)) {
+        return;
+    }
+
+    $items = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+
+    foreach ($items as $item) {
+        if ($item->isDir()) {
+            rmdir($item->getPathname());
+        } else {
+            unlink($item->getPathname());
+        }
+    }
+
+    rmdir($dir);
+}
+
+function ensureEnv(string $appDir): void
+{
+    $envPath = $appDir . '/.env';
+
+    if (file_exists($envPath)) {
+        return;
+    }
+
+    $examplePath = $appDir . '/.env.example';
+    $dbPath = $appDir . '/database/database.sqlite';
+
+    if (file_exists($examplePath)) {
+        $env = file_get_contents($examplePath);
+    } else {
+        $env = '';
+    }
+
+    // Generate an APP_KEY
+    $key = 'base64:' . base64_encode(random_bytes(32));
+
+    // Apply standalone-mode overrides
+    $overrides = [
+        'APP_KEY' => $key,
+        'APP_ENV' => 'production',
+        'APP_DEBUG' => 'false',
+        'APP_URL' => 'http://127.0.0.1:' . SSHCONFIG_DEFAULT_PORT,
+        'DB_CONNECTION' => 'sqlite',
+        'DB_DATABASE' => $dbPath,
+        'QUEUE_CONNECTION' => 'sync',
+        'SESSION_DRIVER' => 'database',
+        'CACHE_STORE' => 'database',
+        'LOG_CHANNEL' => 'single',
+        'LOG_LEVEL' => 'error',
+    ];
+
+    foreach ($overrides as $key => $value) {
+        $env = setEnvValue($env, $key, $value);
+    }
+
+    file_put_contents($envPath, $env);
+}
+
+function setEnvValue(string $env, string $key, string $value): string
+{
+    // If the value contains spaces or special chars, quote it
+    if (preg_match('/\s/', $value) || str_contains($value, '#')) {
+        $value = '"' . $value . '"';
+    }
+
+    $pattern = '/^' . preg_quote($key, '/') . '=.*/m';
+
+    if (preg_match($pattern, $env)) {
+        return preg_replace($pattern, $key . '=' . $value, $env);
+    }
+
+    // Key doesn't exist, append it
+    return rtrim($env, "\n") . "\n" . $key . '=' . $value . "\n";
+}
+
+function updateEnvValue(string $envPath, string $key, string $value): void
+{
+    if (! file_exists($envPath)) {
+        return;
+    }
+
+    $env = file_get_contents($envPath);
+    $env = setEnvValue($env, $key, $value);
+    file_put_contents($envPath, $env);
+}
+
+function findAvailablePort(int $startPort): int
+{
+    for ($port = $startPort; $port < $startPort + 100; $port++) {
+        $sock = @fsockopen('127.0.0.1', $port, $errno, $errstr, 0.1);
+        if ($sock === false) {
+            return $port;
+        }
+        fclose($sock);
+    }
+
+    // Fallback to the start port
+    output('Warning: No available port found in range, using default.');
+
+    return $startPort;
+}
+
+function openBrowser(string $url): void
+{
+    $cmd = match (PHP_OS_FAMILY) {
+        'Darwin' => sprintf('open %s', escapeshellarg($url)),
+        'Windows' => sprintf('start "" %s', escapeshellarg($url)),
+        default => sprintf('xdg-open %s', escapeshellarg($url)),
+    };
+
+    // Run in background so it doesn't block
+    if (PHP_OS_FAMILY === 'Windows') {
+        pclose(popen($cmd, 'r'));
+    } else {
+        exec($cmd . ' > /dev/null 2>&1 &');
+    }
+}
